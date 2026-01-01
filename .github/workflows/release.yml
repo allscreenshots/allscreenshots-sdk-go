@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   test:
+    name: Test before release
     runs-on: ubuntu-latest
 
     steps:
@@ -27,36 +28,34 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-          key: ${{ runner.os }}-go-1.23-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-1.23-${{ hashFiles('sdk/**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-1.23-
 
-      - name: Download dependencies
+      - name: Download SDK dependencies
+        working-directory: sdk
         run: go mod download
 
-      - name: Verify dependencies
+      - name: Verify SDK dependencies
+        working-directory: sdk
         run: go mod verify
 
-      - name: Run go vet
+      - name: Run go vet on SDK
+        working-directory: sdk
         run: go vet ./...
 
-      - name: Run unit tests
+      - name: Run SDK unit tests
+        working-directory: sdk
         run: go test -v -race -coverprofile=coverage.out ./pkg/...
 
       - name: Run integration tests
+        working-directory: sdk
         env:
           ALLSCREENSHOTS_API_KEY: ${{ secrets.ALLSCREENSHOTS_API_KEY }}
         run: go test -v -timeout 10m ./tests/integration/...
 
-      - name: Upload test report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: integration-test-report
-          path: test-report.html
-          retention-days: 30
-
   release:
+    name: Create release
     runs-on: ubuntu-latest
     needs: test
 
@@ -73,38 +72,25 @@ jobs:
 
       - name: Get version
         id: version
-        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: Generate changelog
-        id: changelog
-        run: |
-          # Get the previous tag
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-
-          if [ -z "$PREV_TAG" ]; then
-            # First release
-            CHANGELOG=$(git log --pretty=format:"- %s" HEAD)
-          else
-            # Changes since last tag
-            CHANGELOG=$(git log --pretty=format:"- %s" ${PREV_TAG}..HEAD)
-          fi
-
-          # Write to file for the release
-          echo "## Changes" > CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          echo "$CHANGELOG" >> CHANGELOG.md
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: ${{ steps.version.outputs.version }}
-          body_path: CHANGELOG.md
+          name: ${{ steps.version.outputs.VERSION }}
+          generate_release_notes: true
+          body: |
+            ## Installation
+
+            ```bash
+            go get github.com/allscreenshots/allscreenshots-sdk-go@${{ steps.version.outputs.VERSION }}
+            ```
           draft: false
-          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+          prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update pkg.go.dev
         run: |
           # Trigger pkg.go.dev to index the new version
-          curl -s "https://proxy.golang.org/github.com/allscreenshots/allscreenshots-sdk-go/@v/${{ steps.version.outputs.version }}.info" || true
+          curl -s "https://proxy.golang.org/github.com/allscreenshots/allscreenshots-sdk-go/@v/${{ steps.version.outputs.VERSION }}.info" || true

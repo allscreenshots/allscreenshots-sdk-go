@@ -1,4 +1,4 @@
-name: Build
+name: Build and Test
 
 on:
   push:
@@ -7,7 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  build-sdk:
+    name: Build SDK (Go ${{ matrix.go-version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -28,20 +29,24 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('sdk/**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-${{ matrix.go-version }}-
 
-      - name: Download dependencies
+      - name: Download SDK dependencies
+        working-directory: sdk
         run: go mod download
 
-      - name: Verify dependencies
+      - name: Verify SDK dependencies
+        working-directory: sdk
         run: go mod verify
 
-      - name: Run go vet
+      - name: Run go vet on SDK
+        working-directory: sdk
         run: go vet ./...
 
-      - name: Run go fmt check
+      - name: Run go fmt check on SDK
+        working-directory: sdk
         run: |
           if [ -n "$(gofmt -l .)" ]; then
             echo "Code is not formatted. Run 'go fmt ./...'"
@@ -49,21 +54,57 @@ jobs:
             exit 1
           fi
 
-      - name: Build
+      - name: Build SDK
+        working-directory: sdk
         run: go build ./...
 
-      - name: Run unit tests
+      - name: Run SDK unit tests
+        working-directory: sdk
         run: go test -v -race -coverprofile=coverage.out ./pkg/...
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
+        if: matrix.go-version == '1.23'
         with:
-          files: coverage.out
+          files: sdk/coverage.out
           fail_ci_if_error: false
 
-  integration:
+  build-sample-app:
+    name: Build sample app
     runs-on: ubuntu-latest
-    needs: build
+    needs: build-sdk
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-1.23-${{ hashFiles('sample-app/**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-1.23-
+
+      - name: Download sample app dependencies
+        working-directory: sample-app
+        run: go mod download
+
+      - name: Build sample app
+        working-directory: sample-app
+        run: go build -o sample-app .
+
+  integration-tests:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    needs: build-sdk
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
@@ -81,14 +122,16 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-          key: ${{ runner.os }}-go-1.23-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-1.23-${{ hashFiles('sdk/**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-1.23-
 
-      - name: Download dependencies
+      - name: Download SDK dependencies
+        working-directory: sdk
         run: go mod download
 
       - name: Run integration tests
+        working-directory: sdk
         env:
           ALLSCREENSHOTS_API_KEY: ${{ secrets.ALLSCREENSHOTS_API_KEY }}
         run: go test -v -timeout 10m ./tests/integration/...
@@ -98,5 +141,5 @@ jobs:
         if: always()
         with:
           name: integration-test-report
-          path: test-report.html
+          path: sdk/test-report.html
           retention-days: 30
