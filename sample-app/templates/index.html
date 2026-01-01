@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Allscreenshots Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f5f5f5;
+            color: #1a1a1a;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .form-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .input-group {
+            flex: 1;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            color: #666;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #1a1a1a;
+        }
+
+        select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #1a1a1a;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-top: 24px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn-primary {
+            background: #1a1a1a;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #333;
+        }
+
+        .btn-primary:disabled {
+            background: #999;
+            cursor: not-allowed;
+        }
+
+        .result-section h2 {
+            font-size: 14px;
+            font-weight: 500;
+            color: #666;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .result-container {
+            min-height: 200px;
+            border: 1px dashed #ddd;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fafafa;
+            position: relative;
+        }
+
+        .result-container.has-image {
+            border-style: solid;
+            background: #f5f5f5;
+        }
+
+        .result-placeholder {
+            color: #999;
+            font-size: 14px;
+        }
+
+        .result-image {
+            max-width: 100%;
+            max-height: 600px;
+            border-radius: 4px;
+        }
+
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #eee;
+            border-top-color: #1a1a1a;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loading-text {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .error {
+            background: #fee;
+            color: #c00;
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Allscreenshots Demo</h1>
+        </header>
+
+        <div class="card">
+            <form id="screenshot-form">
+                <div class="form-row">
+                    <div class="input-group" style="flex: 3;">
+                        <label for="url">URL</label>
+                        <input type="text" id="url" name="url" placeholder="https://github.com" value="https://github.com">
+                    </div>
+                    <div class="input-group" style="flex: 0 0 auto;">
+                        <label>&nbsp;</label>
+                        <button type="submit" class="btn btn-primary" id="submit-btn">Take Screenshot</button>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="input-group">
+                        <label for="device">Device</label>
+                        <select id="device" name="device">
+                            <option value="Desktop HD">Desktop HD</option>
+                            <option value="iPhone 14">iPhone 14</option>
+                            <option value="iPad">iPad</option>
+                        </select>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="fullPage" name="fullPage">
+                        <label for="fullPage">Full page</label>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="card result-section">
+            <h2>Result</h2>
+            <div class="result-container" id="result-container">
+                <span class="result-placeholder" id="placeholder">Screenshot will appear here</span>
+                <div class="loading hidden" id="loading">
+                    <div class="spinner"></div>
+                    <span class="loading-text">Capturing screenshot...</span>
+                </div>
+                <div class="error hidden" id="error"></div>
+                <img class="result-image hidden" id="result-image" alt="Screenshot">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('screenshot-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const resultContainer = document.getElementById('result-container');
+        const placeholder = document.getElementById('placeholder');
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const resultImage = document.getElementById('result-image');
+
+        function showLoading() {
+            placeholder.classList.add('hidden');
+            error.classList.add('hidden');
+            resultImage.classList.add('hidden');
+            loading.classList.remove('hidden');
+            resultContainer.classList.remove('has-image');
+            submitBtn.disabled = true;
+        }
+
+        function showError(message) {
+            loading.classList.add('hidden');
+            placeholder.classList.add('hidden');
+            resultImage.classList.add('hidden');
+            error.textContent = message;
+            error.classList.remove('hidden');
+            resultContainer.classList.remove('has-image');
+            submitBtn.disabled = false;
+        }
+
+        function showImage(base64Data) {
+            loading.classList.add('hidden');
+            placeholder.classList.add('hidden');
+            error.classList.add('hidden');
+            resultImage.src = 'data:image/png;base64,' + base64Data;
+            resultImage.classList.remove('hidden');
+            resultContainer.classList.add('has-image');
+            submitBtn.disabled = false;
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const url = document.getElementById('url').value.trim();
+            const device = document.getElementById('device').value;
+            const fullPage = document.getElementById('fullPage').checked;
+
+            if (!url) {
+                showError('Please enter a URL');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch('/api/screenshot', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url, device, fullPage }),
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showImage(data.image);
+                } else {
+                    showError(data.error || 'Failed to capture screenshot');
+                }
+            } catch (err) {
+                showError('Network error. Please try again.');
+            }
+        });
+    </script>
+</body>
+</html>
