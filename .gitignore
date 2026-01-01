@@ -8,26 +8,3 @@
 # OS
 .DS_Store
 Thumbs.db
-
-# Environment
-.env
-.env.local
-.env.*.local
-
-# Binary output
-/bin/
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-
-# Test output
-*.test
-*.out
-coverage.out
-coverage.html
-
-# Vendor (optional - uncomment if not vendoring)
-# vendor/
-
