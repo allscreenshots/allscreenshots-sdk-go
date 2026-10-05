@@ -1,7 +1,7 @@
-module github.com/allscreenshots/allscreenshots-sdk-go/sample-app
+module allscreenshots-sdk-demo
 
-go 1.21
+go 1.27.1
 
-require github.com/allscreenshots/allscreenshots-sdk-go v1.0.0
+require github.com/allscreenshots/allscreenshots-sdk-go/v2 v2.0.0
 
-replace github.com/allscreenshots/allscreenshots-sdk-go => ../sdk
+replace github.com/allscreenshots/allscreenshots-sdk-go/v2 => ..

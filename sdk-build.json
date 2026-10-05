@@ -1,0 +1,25 @@
+{
+  "language": "go",
+  "build": [
+    [
+      "go",
+      "test",
+      "./..."
+    ],
+    [
+      "go",
+      "build",
+      "-mod=readonly",
+      "-o",
+      "worker",
+      "."
+    ]
+  ],
+  "buildCwd": [
+    ".",
+    "sample-app"
+  ],
+  "run": [
+    "./sample-app/worker"
+  ]
+}

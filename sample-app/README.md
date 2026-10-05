@@ -1,58 +1,7 @@
-# Allscreenshots Demo Application
+# Go SDK demo
 
-A sample web application demonstrating the Allscreenshots Go SDK.
+This local browser app calls the generated SDK at the repository root. It supports sync capture, async submit/poll/download, quota, image preview, and PNG download.
 
-## Prerequisites
+Build the SDK and demo using `python3 tools/verify.py --build`. Set `ALLSCREENSHOTS_API_KEY` in your shell, optionally set `ALLSCREENSHOTS_BASE_URL`, then run `python3 sample-app/serve.py` and open http://127.0.0.1:7070. The key is never sent to the demo browser.
 
-- Go 1.21 or later
-- Allscreenshots API key
-
-## Setup
-
-1. Set your API key:
-
-```bash
-export ALLSCREENSHOTS_API_KEY="your-api-key"
-```
-
-2. Run the application:
-
-```bash
-go run main.go
-```
-
-3. Open your browser and navigate to [http://localhost:8080](http://localhost:8080)
-
-## Usage
-
-1. Enter a URL to capture (e.g., `https://github.com`)
-2. Select a device preset:
-   - Desktop HD (1920x1080)
-   - iPhone 14 (390x844)
-   - iPad (820x1180)
-3. Optionally enable "Full page" to capture the entire scrollable page
-4. Click "Take Screenshot"
-5. The captured screenshot will appear in the result area
-
-## Configuration
-
-| Environment Variable | Description | Default |
-|---------------------|-------------|---------|
-| `ALLSCREENSHOTS_API_KEY` | API key for authentication (required) | - |
-| `PORT` | HTTP server port | `8080` |
-
-## Project structure
-
-```
-sample-app/
-├── main.go           # Application entry point and handlers
-├── templates/
-│   └── index.html    # Main page template
-├── static/           # Static assets (if any)
-├── go.mod            # Go module file
-└── README.md         # This file
-```
-
-## License
-
-Apache License 2.0. See [LICENSE](LICENSE) for details.
+You can also run the worker with `quota`, `sync`, or `async`; see `sdk-build.json` for its command. Capture workers use responseType URL with a submission key, then download through the SDK. To recover a submission, reuse `ALLSCREENSHOTS_IDEMPOTENCY_KEY` with the same request.

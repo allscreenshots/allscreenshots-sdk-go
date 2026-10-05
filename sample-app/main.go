@@ -1,165 +1,35 @@
-// Package main provides a sample web application demonstrating the Allscreenshots SDK.
 package main
-
 import (
-	"context"
-	"embed"
-	"encoding/base64"
-	"encoding/json"
-	"fmt"
-	"html/template"
-	"log"
-	"net/http"
-	"os"
-	"time"
-
-	"github.com/allscreenshots/allscreenshots-sdk-go/pkg/allscreenshots"
+ "context"
+ "encoding/json"
+ "fmt"
+ "io"
+ "net/http"
+ "net/url"
+ "os"
+ "strings"
+ "time"
+ sdk "github.com/allscreenshots/allscreenshots-sdk-go/v2"
 )
-
-//go:embed templates/*
-var templatesFS embed.FS
-
-//go:embed static/*
-var staticFS embed.FS
-
-var (
-	client    *allscreenshots.Client
-	templates *template.Template
-)
-
-// ScreenshotRequest represents the incoming screenshot request from the UI.
-type ScreenshotRequest struct {
-	URL      string `json:"url"`
-	Device   string `json:"device"`
-	FullPage bool   `json:"fullPage"`
-}
-
-// ScreenshotResponse represents the response sent back to the UI.
-type ScreenshotResponse struct {
-	Success bool   `json:"success"`
-	Image   string `json:"image,omitempty"`
-	Error   string `json:"error,omitempty"`
-}
-
-func main() {
-	// Check for API key
-	apiKey := os.Getenv("ALLSCREENSHOTS_API_KEY")
-	if apiKey == "" {
-		log.Fatal("ALLSCREENSHOTS_API_KEY environment variable is required")
-	}
-
-	// Initialize client
-	client = allscreenshots.NewClient(
-		allscreenshots.WithAPIKey(apiKey),
-		allscreenshots.WithTimeout(120*time.Second),
-	)
-
-	// Parse templates
-	var err error
-	templates, err = template.ParseFS(templatesFS, "templates/*.html")
-	if err != nil {
-		log.Fatalf("Failed to parse templates: %v", err)
-	}
-
-	// Set up routes
-	http.HandleFunc("/", handleIndex)
-	http.HandleFunc("/api/screenshot", handleScreenshot)
-	http.Handle("/static/", http.FileServer(http.FS(staticFS)))
-
-	// Start server
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	log.Printf("Server starting on http://localhost:%s", port)
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
-		log.Fatalf("Server failed: %v", err)
-	}
-}
-
-func handleIndex(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
-
-	if err := templates.ExecuteTemplate(w, "index.html", nil); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-func handleScreenshot(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req ScreenshotRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		sendJSONResponse(w, ScreenshotResponse{
-			Success: false,
-			Error:   "Invalid request body",
-		})
-		return
-	}
-
-	// Validate URL
-	if req.URL == "" {
-		sendJSONResponse(w, ScreenshotResponse{
-			Success: false,
-			Error:   "URL is required",
-		})
-		return
-	}
-
-	// Create context with timeout
-	ctx, cancel := context.WithTimeout(r.Context(), 120*time.Second)
-	defer cancel()
-
-	// Take screenshot
-	imageData, err := client.Screenshot(ctx, &allscreenshots.ScreenshotRequest{
-		URL:      req.URL,
-		Device:   req.Device,
-		FullPage: req.FullPage,
-	})
-
-	if err != nil {
-		errorMsg := "Failed to capture screenshot"
-
-		// Provide more specific error messages
-		if allscreenshots.IsValidationError(err) {
-			errorMsg = fmt.Sprintf("Invalid request: %v", err)
-		} else if allscreenshots.IsUnauthorized(err) {
-			errorMsg = "Invalid API key"
-		} else if allscreenshots.IsRateLimited(err) {
-			errorMsg = "Rate limit exceeded. Please try again later."
-		} else if allscreenshots.IsServerError(err) {
-			errorMsg = "Server error. Please try again."
-		} else if apiErr, ok := allscreenshots.AsAPIError(err); ok {
-			errorMsg = apiErr.Message
-		}
-
-		sendJSONResponse(w, ScreenshotResponse{
-			Success: false,
-			Error:   errorMsg,
-		})
-		return
-	}
-
-	// Encode image to base64
-	base64Image := base64.StdEncoding.EncodeToString(imageData)
-
-	sendJSONResponse(w, ScreenshotResponse{
-		Success: true,
-		Image:   base64Image,
-	})
-}
-
-func sendJSONResponse(w http.ResponseWriter, resp ScreenshotResponse) {
-	w.Header().Set("Content-Type", "application/json")
-	if !resp.Success {
-		w.WriteHeader(http.StatusBadRequest)
-	}
-	json.NewEncoder(w).Encode(resp)
+func env(name,fallback string) string { if v:=os.Getenv(name);v!="" {return v}; return fallback }
+func main() { if err:=run();err!=nil {fmt.Fprintln(os.Stderr,"SDK request failed. Check authentication, quota, and the API response.");os.Exit(1)} }
+func run() error {
+ config:=sdk.NewConfiguration(); config.Servers=sdk.ServerConfigurations{{URL:env("ALLSCREENSHOTS_BASE_URL","https://api.allscreenshots.com")}};config.HTTPClient=&http.Client{Timeout:180*time.Second}
+ client:=sdk.NewAPIClient(config);ctx:=context.WithValue(context.Background(),sdk.ContextAPIKeys,map[string]sdk.APIKey{"ApiKey":{Key:os.Getenv("ALLSCREENSHOTS_API_KEY")}})
+ mode:="quota";if len(os.Args)>1 {mode=os.Args[1]}
+ if mode=="quota" {q,_,e:=client.UsageAPI.GetQuota(ctx).Execute();if e!=nil{return e};return json.NewEncoder(os.Stdout).Encode(q)}
+ request:=sdk.NewScreenshotRequest(env("ALLSCREENSHOTS_URL","https://example.com"));request.SetResponseType("URL");request.SetFormat("png")
+ key:=env("ALLSCREENSHOTS_IDEMPOTENCY_KEY",fmt.Sprintf("demo-%d",time.Now().UnixNano()))
+ var file *os.File
+ if mode=="sync" {
+  raw,_,e:=client.ScreenshotAPI.CaptureSync(ctx).ScreenshotRequest(*request).IdempotencyKey(key).Execute();if e!=nil{return e}
+  var metadata sdk.ScreenshotJsonResponse; e=json.NewDecoder(raw).Decode(&metadata);raw.Close();os.Remove(raw.Name());if e!=nil{return e}
+  parsed,e:=url.Parse(metadata.GetResultUrl());if e!=nil{return e};parts:=strings.Split(parsed.Path,"/")
+  file,_,e=client.ScreenshotAPI.GetSyncCaptureResult(ctx,parts[len(parts)-2]).Execute();if e!=nil{return e}
+ } else if mode=="async" {
+  job,_,e:=client.JobAPI.CreateAsyncJob(ctx).ScreenshotRequest(*request).IdempotencyKey(key).Execute();if e!=nil{return e};deadline:=time.Now().Add(180*time.Second)
+  for {status,_,e:=client.JobAPI.GetJobStatus(ctx,job.GetId()).Execute();if e!=nil{return e};state:=status.GetStatus();if state=="COMPLETED"{break};if state=="FAILED"||state=="CANCELLED"{return fmt.Errorf("capture failed")};if time.Now().After(deadline){return fmt.Errorf("polling timed out")};time.Sleep(2*time.Second)}
+  file,_,e=client.JobAPI.GetJobResult(ctx,job.GetId()).Execute();if e!=nil{return e}
+ } else {return fmt.Errorf("expected quota, sync, or async")}
+ defer os.Remove(file.Name());defer file.Close();output:=env("ALLSCREENSHOTS_OUTPUT","capture.png");out,e:=os.Create(output);if e!=nil{return e};_,e=io.Copy(out,file);out.Close();if e!=nil{return e};return json.NewEncoder(os.Stdout).Encode(map[string]string{"output":output})
 }
